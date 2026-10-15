@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Ridgeline Thermal Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: field instrument. Map canvas is the hero, a compact control rail beside it (stacks under on phones). */
+:root{
+  --bg:#eef0ea; --panel:#f8f9f5; --fg:#1d2419; --muted:#5d6656; --line:#cfd4c6;
+  --accent:#b8561c; --accent-ink:#fff; --cool:#2f6f8f; --chip:#e3e7dc;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141812; --panel:#1c211a; --fg:#e6eadf; --muted:#9aa391; --line:#323a2e;
+  --accent:#e07a3a; --accent-ink:#141812; --cool:#6fb3d3; --chip:#262d23; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141812; --panel:#1c211a; --fg:#e6eadf; --muted:#9aa391; --line:#323a2e;
+  --accent:#e07a3a; --accent-ink:#141812; --cool:#6fb3d3; --chip:#262d23; color-scheme:dark}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--body);font-size:15px;line-height:1.45;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 28px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:700;font-size:30px;letter-spacing:.02em;text-transform:uppercase;margin:0;text-wrap:balance}
+.sub{color:var(--muted);font-size:13px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.stage{min-width:0;display:flex;flex-direction:column;gap:8px}
+.mapbox{position:relative;background:#d9dccf;border:1px solid var(--line);border-radius:6px;overflow:hidden;touch-action:none}
+canvas{display:block;width:100%;height:auto}
+.compass{position:absolute;top:10px;right:10px;width:54px;height:54px;pointer-events:none}
+.status{position:absolute;left:10px;bottom:10px;right:10px;display:flex;justify-content:flex-start;pointer-events:none}
+.status span{background:rgba(20,24,18,.78);color:#f1f3ec;font-size:12.5px;padding:5px 9px;border-radius:4px;max-width:100%}
+.readouts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:560px){.readouts{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ro{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-width:0}
+.ro .k{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--muted)}
+.ro .v{font-family:var(--mono);font-size:14.5px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.ro .v.up{color:var(--accent)} .ro .v.dn{color:var(--cool)}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{border:0;border-right:1px solid var(--line);background:var(--panel);color:var(--fg);font:600 13px var(--body);padding:7px 11px;cursor:pointer}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);padding:0 4px}
+aside{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.sec{display:flex;flex-direction:column;gap:8px}
+.sec h2{font-family:var(--display);font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:0;font-weight:600}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.row b{font-family:var(--mono);font-weight:500;font-size:13px;font-variant-numeric:tabular-nums}
+select,input[type=text],input[type=password]{font:500 14px var(--body);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:8px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.btn{font:600 14px var(--body);border-radius:6px;padding:9px 12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.5;cursor:default}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.drop{border:1.5px dashed var(--line);border-radius:6px;padding:12px;text-align:center;font-size:13px;color:var(--muted);cursor:pointer}
+.drop.over{border-color:var(--accent);color:var(--fg)}
+.note{font-size:12.5px;color:var(--muted)}
+.note.warn{color:var(--accent)}
+[hidden]{display:none!important}
+.clock{position:absolute;top:10px;left:10px;background:rgba(20,24,18,.78);color:#f1f3ec;font:500 15px var(--mono);font-variant-numeric:tabular-nums;padding:5px 10px;border-radius:4px;pointer-events:none}
+#playBtn{min-width:96px}
+.dialrow{display:flex;align-items:center;gap:14px}
+#dial{width:132px;height:132px;flex:none;touch-action:none;cursor:grab;border-radius:50%}
+#dial .face{fill:var(--bg);stroke:var(--line);stroke-width:1.5}
+#dial .tick{stroke:var(--muted);stroke-width:1}
+#dial .tick.major{stroke:var(--fg);stroke-width:2}
+#dial text{fill:var(--fg);font:700 11px var(--display);text-anchor:middle;dominant-baseline:central}
+#dial .shaft{stroke:var(--accent);stroke-width:3.5;stroke-linecap:round}
+#dial .head,#dial .knob{fill:var(--accent)}
+#dial .knob{stroke:var(--panel);stroke-width:2}
+.dialread{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted)}
+.dialread b{font:500 22px var(--mono);color:var(--fg)}
+hr{border:0;border-top:1px solid var(--line);margin:0}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Ridgeline Thermal Lab</h1>
+    <span class="sub">Upload an onX screenshot, set the day, place your stand, watch where your scent goes.</span>
+  </header>
+
+  <div class="grid">
+    <section class="stage">
+      <div class="mapbox" id="mapbox">
+        <canvas id="cv" aria-label="Terrain map with scent drift"></canvas>
+        <svg class="compass" id="compass" viewBox="-30 -30 60 60" aria-hidden="true">
+          <circle r="27" fill="rgba(20,24,18,.72)"/>
+          <g id="needle"><path d="M0,-21 L6,4 L0,0 L-6,4 Z" fill="#f2f2ea"/><text y="-8" x="0" text-anchor="middle" font-size="9" font-family="Barlow Condensed,Arial" fill="#141812" font-weight="700" dy="0">N</text></g>
+          <g id="windarrow"><path d="M0,26 L0,12" stroke="#e07a3a" stroke-width="3" stroke-linecap="round"/><path d="M0,10 L-5,17 L5,17 Z" fill="#e07a3a"/></g>
+        </svg>
+        <div class="clock" id="clock">6:00 AM</div>
+        <div class="status"><span id="status">Tap the map to place your stand.</span></div>
+      </div>
+
+      <div class="tools">
+        <button class="btn primary" id="playBtn" aria-pressed="false">Play day</button>
+        <div class="seg" role="group" aria-label="Tap mode">
+          <button id="mStand" aria-pressed="true">Place stand</button>
+          <button id="mRaise" aria-pressed="false">Raise ground</button>
+          <button id="mLower" aria-pressed="false">Lower ground</button>
+        </div>
+        <label class="chk"><input type="checkbox" id="showElev"> Elevation tint</label>
+        <label class="chk"><input type="checkbox" id="showFlow"> Airflow arrows</label>
+      </div>
+
+      <div class="readouts">
+        <div class="ro"><div class="k">Thermal at stand</div><div class="v" id="roTh">–</div></div>
+        <div class="ro"><div class="k">Wind at stand</div><div class="v" id="roWind">–</div></div>
+        <div class="ro"><div class="k">Scent drifts toward</div><div class="v" id="roDrift">–</div></div>
+        <div class="ro"><div class="k">Sunrise / Sunset</div><div class="v" id="roSun">–</div></div>
+      </div>
+    </section>
+
+    <aside>
+      <div class="sec">
+        <h2>Terrain</h2>
+        <label class="f">Ground
+          <select id="terrain">
+            <option value="upload">My map (upload screenshot)</option>
+            <option value="ridge" selected>Ridge and saddle</option>
+            <option value="drainage">Drainage head</option>
+            <option value="bench">Sidehill bench</option>
+            <option value="creek">Creek bottom</option>
+            <option value="r2c">Ridge to creek transition</option>
+            <option value="ag">Ag field edge</option>
+            <option value="funnel">Funnel / pinch point</option>
+          </select>
+        </label>
+        <div id="uploadBox" hidden class="sec">
+          <div class="drop" id="drop" tabindex="0" role="button">Tap to choose an onX screenshot, or drop it here</div>
+          <input type="file" id="file" accept="image/png,image/jpeg,image/webp" hidden>
+          <label class="f">Hints for the terrain read (optional)
+            <input type="text" id="hints" maxlength="300" placeholder="e.g. creek runs along the south edge">
+          </label>
+          <label class="f" id="passRow" hidden>Passcode
+            <input type="password" id="passcode" autocomplete="off" placeholder="From the person who shared this">
+          </label>
+          <div class="btnrow">
+            <button class="btn primary" id="readBtn" disabled>Read terrain</button>
+            <button class="btn" id="resetBtn" disabled>Undo my edits</button>
+          </div>
+          <p class="note" id="aiNote">Claude reads contour lines, labels, creeks and slope shading to build an elevation model. Check it with Elevation tint and fix spots with Raise or Lower.</p>
+        </div>
+        <label class="f"><span class="row"><span id="rotLabel">Terrain rotation</span><b id="rotV">0°</b></span>
+          <input type="range" id="rot" min="0" max="359" step="1" value="0">
+        </label>
+      </div>
+      <hr>
+      <div class="sec">
+        <h2>Day</h2>
+        <label class="f">Region
+          <select id="region">
+            <option value="31">Deep South (31° N)</option>
+            <option value="35">Mid South (35° N)</option>
+            <option value="39">Midwest / Mid Atlantic (39° N)</option>
+            <option value="42.5" selected>Great Lakes / Northeast (42.5° N)</option>
+            <option value="46">North Woods / Northern Plains (46° N)</option>
+            <option value="40.5">Mountain West (40.5° N)</option>
+          </select>
+        </label>
+        <label class="f">Season
+          <select id="season">
+            <option value="258">Early season (mid Sept)</option>
+            <option value="293">Pre rut (late Oct)</option>
+            <option value="314" selected>Rut (mid Nov)</option>
+            <option value="349">Late season (mid Dec)</option>
+            <option value="15">Late season (mid Jan)</option>
+            <option value="110">Spring turkey (late Apr)</option>
+          </select>
+        </label>
+        <label class="f"><span class="row"><span>Time (local solar)</span><b id="timeV">6:00 AM</b></span>
+          <input type="range" id="time" min="240" max="1260" step="5" value="360">
+        </label>
+      </div>
+      <hr>
+      <div class="sec">
+        <h2>Wind</h2>
+        <label class="f"><span class="row"><span>Speed</span><b id="wsV">0 mph</b></span>
+          <input type="range" id="ws" min="0" max="60" step="1" value="0">
+        </label>
+        <div class="dialrow">
+          <svg id="dial" viewBox="-62 -62 124 124" role="slider" tabindex="0" aria-label="Wind blowing from" aria-valuemin="0" aria-valuemax="359" aria-valuenow="315">
+            <circle class="face" r="58"/>
+            <g id="dialTicks"></g>
+            <text y="-44">N</text><text x="44">E</text><text y="44">S</text><text x="-44">W</text>
+            <g id="dialArrow"><line class="shaft" x1="0" y1="-30" x2="0" y2="14"/><path class="head" d="M0,24 L-8,10 L8,10 Z"/><circle class="knob" cy="-32" r="7"/></g>
+          </svg>
+          <div class="dialread"><span>Blowing from</span><b id="wdV">NW 315°</b><span>Drag the dial or use arrow keys</span></div>
+        </div>
+        </label>
+        <p class="note">At 0 mph you see thermals only. With wind, thermals still push scent up or down the slope on top of the wind, and they matter most in bottoms and behind ridges where the wind is blocked.</p>
+      </div>
+      <hr>
+      <p class="note">Rule based model: sun angle on each slope heats or cools the ground, air rises upslope when warm and drains downslope when cool, and wind is slowed in bottoms and behind ridges. Clear sky assumed. Confirm with a wind checker on the ground.</p>
+    </aside>
+  </div>
+</div>
+
+<script>
+(()=>{
+const D=Math.PI/180;
+const $=id=>document.getElementById(id);
+const cv=$('cv'), ctx=cv.getContext('2d');
+const base=document.createElement('canvas'), bctx=base.getContext('2d');
+
+// ---------- state ----------
+const S={terrain:'ridge',rot:0,lat:42.5,doy:314,minutes:360,ws:0,wd:315,
+  mode:'stand',showElev:false,showFlow:false,stand:{x:.5,y:.62},img:null,aiGrid:null};
+let cols=160, rows=160, H=new Float32Array(cols*rows);
+let VX,VY,TB,TH,SH; // velocity mph (screen), turbulence, thermal state, shelter
+let gmaxCache=1;
+
+// ---------- noise ----------
+function makeNoise(seed){const r=[];let s=seed;for(let i=0;i<4096;i++){s=(s*1103515245+12345)&0x7fffffff;r.push(s/0x7fffffff)}
+ const g=(x,y)=>r[((x&63)*64+(y&63))&4095];
+ return (x,y)=>{const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi,u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+  return (g(xi,yi)*(1-u)+g(xi+1,yi)*u)*(1-v)+(g(xi,yi+1)*(1-u)+g(xi+1,yi+1)*u)*v}}
+const nz=makeNoise(7);
+const fbm=(x,y)=>nz(x*4,y*4)*.6+nz(x*9+3,y*9+5)*.3+nz(x*19+7,y*19+1)*.1;
+const G=(v,c,w)=>Math.exp(-(((v-c)/w)**2));
+const sm=(a,b,x)=>{const t=Math.min(1,Math.max(0,(x-a)/(b-a)));return t*t*(3-2*t)};
+
+// presets in unit square, y down = south when rotation 0
+const PRESETS={
+ ridge:(x,y)=>G(y,.42,.2)*(1-.5*G(x,.5,.11))+.15*(1-y),
+ drainage:(x,y)=>{const head=sm(.25,.55,y);return .85-.45*y-.42*G(x,.5+.04*Math.sin(y*7),.09+.08*y)*head+.12*G(y,.12,.15)},
+ bench:(x,y)=>{let h=y<.42?1-y:(y<.58?.58-(y-.42)*.18:.551-(y-.58)*1.15);return h+.03*Math.sin(x*6)},
+ creek:(x,y)=>{const c=.5+.07*Math.sin(x*7);return Math.min(1,Math.abs(y-c)/.5)**1.4+.06*x},
+ r2c:(x,y)=>{const w=.12+.3*y;return (1-y)*.75*G(x,.5,w)+.35*(1-sm(.7,.95,y))+.15*(1-y)},
+ ag:(x,y)=>{const f=y<.38?.8:.8-.75*sm(.38,.92,y);return f+(y<.38?0:.04*Math.sin(x*8))},
+ funnel:(x,y)=>.72-.42*G(y,.52,.13)*(G(x,0,.32)+G(x,1,.32))-.2*sm(.6,1,y)+.1*G(x,.5,.25)*G(y,.52,.2)
+};
+
+function normalize(a){let mn=1e9,mx=-1e9;for(const v of a){if(v<mn)mn=v;if(v>mx)mx=v}const r=mx-mn||1;for(let i=0;i<a.length;i++)a[i]=(a[i]-mn)/r}
+function blur(a,c,r,pass){const t=new Float32Array(a.length);for(let p=0;p<pass;p++){
+ for(let j=0;j<r;j++)for(let i=0;i<c;i++){let s=0,n=0;for(let k=-1;k<=1;k++){const ii=i+k;if(ii>=0&&ii<c){s+=a[j*c+ii];n++}}t[j*c+i]=s/n}
+ for(let j=0;j<r;j++)for(let i=0;i<c;i++){let s=0,n=0;for(let k=-1;k<=1;k++){const jj=j+k;if(jj>=0&&jj<r){s+=t[jj*c+i];n++}}a[j*c+i]=s/n}}}
+
+function buildPreset(name){cols=160;rows=160;H=new Float32Array(cols*rows);const f=PRESETS[name];
+ for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){const x=i/(cols-1),y=j/(rows-1);H[j*cols+i]=f(x,y)+.05*fbm(x,y)}
+ normalize(H);blur(H,cols,rows,2);normalize(H);hVer++}
+
+function gridFromAI(g){ // g: rows x cols numbers 0..100 -> upsample to current cols/rows
+ const R=g.length,C=g[0].length;const out=new Float32Array(cols*rows);
+ for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){const gx=i/(cols-1)*(C-1),gy=j/(rows-1)*(R-1);
+  const x0=Math.floor(gx),y0=Math.floor(gy),x1=Math.min(C-1,x0+1),y1=Math.min(R-1,y0+1),fx=gx-x0,fy=gy-y0;
+  const v=(+g[y0][x0]*(1-fx)+ +g[y0][x1]*fx)*(1-fy)+(+g[y1][x0]*(1-fx)+ +g[y1][x1]*fx)*fy;out[j*cols+i]=isFinite(v)?v:50}
+ normalize(out);blur(out,cols,rows,4);normalize(out);hVer++;return out}
+
+// ---------- sun ----------
+function sunPos(lat,N,t){const d=23.44*Math.sin(2*Math.PI*(284+N)/365)*D,Hh=15*(t-12)*D,p=lat*D;
+ const se=Math.sin(p)*Math.sin(d)+Math.cos(p)*Math.cos(d)*Math.cos(Hh);const el=Math.asin(se);
+ let ca=(Math.sin(d)-se*Math.sin(p))/(Math.cos(el)*Math.cos(p));ca=Math.max(-1,Math.min(1,ca));let az=Math.acos(ca)/D;if(Hh>0)az=360-az;return{el,az}}
+function sunTimes(lat,N){const d=23.44*Math.sin(2*Math.PI*(284+N)/365)*D;const c=-Math.tan(lat*D)*Math.tan(d);
+ if(c>=1)return null;if(c<=-1)return null;const h=Math.acos(c)/D/15;return[12-h,12+h]}
+const fmtT=h=>{let m=Math.round(h*60);let hh=Math.floor(m/60),mm=m%60;const ap=hh>=12?'PM':'AM';let h12=hh%12;if(h12===0)h12=12;return h12+':'+String(mm).padStart(2,'0')+' '+ap};
+const DIRS=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+const card=b=>DIRS[Math.round(((b%360)+360)%360/22.5)%16];
+
+// ---------- field model ----------
+let hVer=0,builtVer=-1;
+function compute(){if(builtVer!==hVer){topoDirty=true;builtVer=hVer}
+ const n=cols*rows;VX=new Float32Array(n);VY=new Float32Array(n);TB=new Float32Array(n);TH=new Float32Array(n);SH=new Float32Array(n);
+ const GX=new Float32Array(n),GY=new Float32Array(n),LAP=new Float32Array(n);let gmax=1e-6;
+ for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){const k=j*cols+i;
+  const l=H[j*cols+Math.max(0,i-1)],r=H[j*cols+Math.min(cols-1,i+1)],u=H[Math.max(0,j-1)*cols+i],d=H[Math.min(rows-1,j+1)*cols+i];
+  GX[k]=(r-l)/2;GY[k]=(d-u)/2;LAP[k]=(l+r+u+d)/4-H[k];const g=Math.hypot(GX[k],GY[k]);if(g>gmax)gmax=g}
+ gmaxCache=gmax;
+ const R=S.rot;
+ // per cell slope angle + facing bearing
+ const SL=new Float32Array(n),FA=new Float32Array(n),SN=new Float32Array(n);
+ for(let k=0;k<n;k++){const g=Math.hypot(GX[k],GY[k]);const sn=g/gmax;SN[k]=sn;SL[k]=Math.atan(sn*.65);
+  // downhill screen vector = -grad; bearing = atan2(dx,-dy)+R
+  FA[k]=g>1e-9?(Math.atan2(-GX[k],GY[k])/D+R):0}
+ const CS=new Float32Array(n),SS=new Float32Array(n),CF=new Float32Array(n),SF=new Float32Array(n);
+ for(let k=0;k<n;k++){CS[k]=Math.cos(SL[k]);SS[k]=Math.sin(SL[k]);CF[k]=Math.cos(FA[k]*D);SF[k]=Math.sin(FA[k]*D)}
+ // thermal state integration from midnight to now
+ const T=new Float32Array(n).fill(-0.6/0.7);const dt=1/12,tEnd=S.minutes/60;
+ for(let t=0;t<tEnd;t+=dt){const s=sunPos(S.lat,S.doy,t);if(s.el<=0){for(let k=0;k<n;k++)T[k]+=dt*(-0.7*T[k]-0.6);continue}
+  const se=Math.sin(s.el),ce=Math.cos(s.el),soft=Math.min(1,s.el/(4*D));
+  const ca=Math.cos(s.az*D),sa=Math.sin(s.az*D);
+  for(let k=0;k<n;k++){let I=se*CS[k]+ce*SS[k]*(ca*CF[k]+sa*SF[k]);I=Math.max(0,I);I=(.75*I+.25*se)*soft;
+   T[k]+=dt*(2.2*I-0.7*T[k]-0.6)}}
+ // wind
+ const ws=S.ws,toB=(S.wd+180)%360,wa=(toB-R)*D;const wux=Math.sin(wa),wuy=-Math.cos(wa);
+ const step=Math.max(1,Math.round(cols/80));
+ for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){const k=j*cols+i;
+  // shelter: upwind higher ground
+  let sh=0;if(ws>0){for(let s=2;s<=26;s+=2){const ii=Math.round(i-wux*s*step),jj=Math.round(j-wuy*s*step);if(ii<0||jj<0||ii>=cols||jj>=rows)break;
+   const dh=H[jj*cols+ii]-H[k]-s*step/cols*.35;if(dh>0)sh=Math.max(sh,Math.min(1,dh*4.5))}}
+  SH[k]=sh;
+  const sn=SN[k];const g=Math.hypot(GX[k],GY[k]);const nx=g>1e-9?GX[k]/g:0,ny=g>1e-9?GY[k]/g:0;
+  let spd=ws*(.55+.6*H[k])*(1-.7*sh);
+  let vx=wux*spd,vy=wuy*spd;
+  // channel along contours in low / sheltered ground
+  const a=Math.min(.85,sh*sn*.9+(1-H[k])*.35*sn);const dot=vx*nx+vy*ny;vx-=a*dot*nx;vy-=a*dot*ny;
+  const wEff=Math.hypot(vx,vy);
+  // thermal
+  let th=Math.max(-1.6,Math.min(1.8,T[k]));TH[k]=th;
+  let mag=th>0?th*1.7:th*1.5; // mph scale, + upslope, - downslope
+  if(th<0)mag*=1+Math.min(1.2,Math.max(0,LAP[k]*gmax>0?LAP[k]/gmax*6:0));
+  mag*=Math.sqrt(sn);
+  const tw=.5+.5/(1+(wEff/8)**2);
+  vx+=nx*mag*tw;vy+=ny*mag*tw;
+  VX[k]=vx;VY[k]=vy;TB[k]=sh*Math.sqrt(ws)*.5+(ws>0?.15:0)}
+ drawBase();updateReadouts()}
+
+function sample(arr,x,y){const gx=x*(cols-1),gy=y*(rows-1);const i=Math.max(0,Math.min(cols-2,Math.floor(gx))),j=Math.max(0,Math.min(rows-2,Math.floor(gy)));
+ const fx=Math.min(1,Math.max(0,gx-i)),fy=Math.min(1,Math.max(0,gy-j));
+ return (arr[j*cols+i]*(1-fx)+arr[j*cols+i+1]*fx)*(1-fy)+(arr[(j+1)*cols+i]*(1-fx)+arr[(j+1)*cols+i+1]*fx)*fy}
+
+// ---------- rendering ----------
+let CW=800,CH=800,DPR=1;
+function resize(){const box=$('mapbox');const w=box.clientWidth;const ar=rows/cols;const maxH=Math.max(320,window.innerHeight*.72);
+ let cw=w,ch=w*ar;if(ch>maxH){ch=maxH;cw=ch/ar}
+ DPR=Math.min(2,window.devicePixelRatio||1);CW=Math.round(cw);CH=Math.round(ch);
+ cv.width=CW*DPR;cv.height=CH*DPR;cv.style.width=CW+'px';cv.style.height=CH+'px';cv.style.margin='0 auto';
+ base.width=cv.width;base.height=cv.height;topoDirty=true;drawBase()}
+
+const topo=document.createElement('canvas'),tctx=topo.getContext('2d');let topoDirty=true;
+function buildTopo(){const W=base.width,Hh=base.height;topo.width=W;topo.height=Hh;tctx.clearRect(0,0,W,Hh);
+ const sw=cols*2,shh=rows*2;const sc=document.createElement('canvas');sc.width=sw;sc.height=shh;const sx2=sc.getContext('2d');
+ if(S.terrain==='upload'&&S.img){tctx.drawImage(S.img,0,0,W,Hh)}
+ else{const im=sx2.createImageData(sw,shh);const d=im.data;const lx=-.6,ly=-.7;
+  for(let py=0;py<shh;py++){const y=py/(shh-1);for(let px=0;px<sw;px++){const x=px/(sw-1);
+   const i=Math.min(cols-2,(x*(cols-1))|0),j=Math.min(rows-2,(y*(rows-1))|0);const k=j*cols+i;
+   const dx=H[k+1]-H[k],dy=H[k+cols]-H[k];const shade=Math.max(-1,Math.min(1,(dx*lx+dy*ly)/gmaxCache*1.2));
+   const t=sample(H,x,y);const o=(py*sw+px)*4;const f=1+shade*.18;
+   d[o]=(226*(1-t)+196*t)*f;d[o+1]=(226*(1-t)+210*t)*f;d[o+2]=(210*(1-t)+176*t)*f;d[o+3]=255}}
+  sx2.putImageData(im,0,0);tctx.imageSmoothingEnabled=true;tctx.drawImage(sc,0,0,W,Hh);
+  const sx=W/(cols-1),sy=Hh/(rows-1);
+  for(let L=1;L<20;L++){const lv=L/20;tctx.strokeStyle=L%5===0?'rgba(120,80,40,.85)':'rgba(140,100,60,.45)';tctx.lineWidth=(L%5===0?1.6:.9)*DPR;tctx.beginPath();
+   for(let j=0;j<rows-1;j++)for(let i=0;i<cols-1;i++){const a=H[j*cols+i],b=H[j*cols+i+1],c=H[(j+1)*cols+i+1],e=H[(j+1)*cols+i];
+    const pts=[];const edge=(v1,v2,x1,y1,x2,y2)=>{if((v1<lv)!==(v2<lv)){const t=(lv-v1)/(v2-v1);pts.push([(x1+(x2-x1)*t)*sx,(y1+(y2-y1)*t)*sy])}};
+    edge(a,b,i,j,i+1,j);edge(b,c,i+1,j,i+1,j+1);edge(e,c,i,j+1,i+1,j+1);edge(a,e,i,j,i,j+1);
+    if(pts.length>=2){tctx.moveTo(pts[0][0],pts[0][1]);tctx.lineTo(pts[1][0],pts[1][1])}if(pts.length===4){tctx.moveTo(pts[2][0],pts[2][1]);tctx.lineTo(pts[3][0],pts[3][1])}}
+   tctx.stroke()}}
+ if(S.showElev){const im=sx2.createImageData(sw,shh);const d=im.data;
+  for(let py=0;py<shh;py++){const y=py/(shh-1);for(let px=0;px<sw;px++){const h=sample(H,px/(sw-1),y);const o=(py*sw+px)*4;
+   d[o]=40+200*h;d[o+1]=90+70*h-60*h*h;d[o+2]=200-170*h;d[o+3]=140}}
+  sx2.clearRect(0,0,sw,shh);sx2.putImageData(im,0,0);tctx.drawImage(sc,0,0,W,Hh)}
+ topoDirty=false}
+function drawBase(){if(!VX)return;const W=base.width,Hh=base.height;if(topoDirty||topo.width!==W||topo.height!==Hh)buildTopo();
+ bctx.setTransform(1,0,0,1,0,0);bctx.clearRect(0,0,W,Hh);bctx.drawImage(topo,0,0);
+ if(S.showFlow){const n=Math.round(CW/34);const stepx=W/n;bctx.lineWidth=1.6*DPR;
+  for(let py=stepx/2;py<Hh;py+=stepx)for(let px=stepx/2;px<W;px+=stepx){const x=px/W,y=py/Hh;const vx=sample(VX,x,y),vy=sample(VY,x,y);const m=Math.hypot(vx,vy);if(m<.05)continue;
+   const th=sample(TH,x,y);const len=Math.min(1,.25+m/6)*stepx*.42;const ux=vx/m,uy=vy/m;
+   bctx.strokeStyle=bctx.fillStyle=(th>0?'rgba(200,90,30,.85)':'rgba(40,110,160,.85)');
+   bctx.beginPath();bctx.moveTo(px-ux*len,py-uy*len);bctx.lineTo(px+ux*len,py+uy*len);bctx.stroke();
+   bctx.beginPath();bctx.moveTo(px+ux*len,py+uy*len);bctx.lineTo(px+ux*len-ux*5*DPR-uy*3*DPR,py+uy*len-uy*5*DPR+ux*3*DPR);bctx.lineTo(px+ux*len-ux*5*DPR+uy*3*DPR,py+uy*len-uy*5*DPR-ux*3*DPR);bctx.fill()}}
+ // compass
+ $('needle').setAttribute('transform','rotate('+(-S.rot)+')');
+ $('windarrow').setAttribute('transform','rotate('+(S.wd-S.rot)+')');$('windarrow').style.opacity=S.ws>0?1:0}
+
+// ---------- particles ----------
+const P=[];const MAXP=900;let last=performance.now(),acc=0;
+const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function frame(now){const dt=Math.min(.05,(now-last)/1000);last=now;
+ if(VX&&S.stand){const rate=reduce?18:40;acc+=dt*rate;while(acc>1&&P.length<MAXP){acc-=1;const a=Math.random()*6.283,r=Math.random()*.004;P.push({x:S.stand.x+Math.cos(a)*r,y:S.stand.y+Math.sin(a)*r*cols/rows,age:0,life:10+Math.random()*8})}
+  const ar=cols/rows;
+  for(let p=P.length-1;p>=0;p--){const q=P[p];q.age+=dt;if(q.age>q.life||q.x<0||q.x>1||q.y<0||q.y>1){P.splice(p,1);continue}
+   const vx=sample(VX,q.x,q.y),vy=sample(VY,q.x,q.y),tb=sample(TB,q.x,q.y);const m=Math.hypot(vx,vy);
+   const k=m>0?.009*Math.pow(m,.75)/m:0; // fraction of map width per second
+   const sig=.0035*(.5+tb)*Math.sqrt(dt);
+   q.x+=vx*k*dt+(Math.random()-.5)*2*sig;q.y+=(vy*k*dt)*ar+(Math.random()-.5)*2*sig*ar}}
+ ctx.setTransform(1,0,0,1,0,0);ctx.drawImage(base,0,0);ctx.setTransform(DPR,0,0,DPR,0,0);
+ for(const q of P){const a=Math.max(0,1-q.age/q.life);const x=q.x*CW,y=q.y*CH;
+  ctx.globalAlpha=a*.55;ctx.fillStyle='#10140e';ctx.beginPath();ctx.arc(x,y,2.6,0,6.283);ctx.fill();
+  ctx.globalAlpha=a;ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(x,y,1.8,0,6.283);ctx.fill()}
+ ctx.globalAlpha=1;
+ if(S.stand){const x=S.stand.x*CW,y=S.stand.y*CH;ctx.lineWidth=2.5;ctx.strokeStyle='#10140e';ctx.fillStyle='#e07a3a';
+  ctx.beginPath();ctx.rect(x-6,y-6,12,12);ctx.fill();ctx.stroke();ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,11,0,6.283);ctx.stroke()}
+ requestAnimationFrame(frame)}
+
+// ---------- readouts ----------
+function updateReadouts(){const st=sunTimes(S.lat,S.doy);$('roSun').textContent=st?fmtT(st[0])+' / '+fmtT(st[1]):'–';
+ if(!S.stand||!VX)return;const x=S.stand.x,y=S.stand.y;const th=sample(TH,x,y);const vx=sample(VX,x,y),vy=sample(VY,x,y);
+ const el=$('roTh');const sn=Math.hypot(sample(VX,x,y),sample(VY,x,y));
+ if(th>.15){el.textContent='Rising (upslope)';el.className='v up'}else if(th<-.15){el.textContent='Falling (downslope)';el.className='v dn'}else{el.textContent='Switching';el.className='v'}
+ const g=sample(SH,x,y);const wsp=S.ws*(.55+.6*sample(H,x,y))*(1-.7*g);
+ $('roWind').textContent=S.ws===0?'Calm':Math.round(wsp)+' mph'+(g>.35?' (sheltered)':'');
+ const m=Math.hypot(vx,vy);if(m<.08){$('roDrift').textContent='Pooling'}else{const b=((Math.atan2(vx,-vy)/D+S.rot)%360+360)%360;$('roDrift').textContent=card(b)+' '+Math.round(b)+'° · '+m.toFixed(1)+' mph'}}
+
+// ---------- controls ----------
+let pending=false;function schedule(){if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;compute()})}
+function setTerrain(name){S.terrain=name;$('uploadBox').hidden=name!=='upload';$('rotLabel').textContent=name==='upload'?'Map orientation (top of screenshot faces)':'Terrain rotation';
+ if(name==='upload'){if(S.img&&S.userH){H=S.userH;hVer++}else if(!S.img){cols=160;rows=110;H=new Float32Array(cols*rows).fill(.5);hVer++;status('Choose an onX screenshot to start.')}}
+ else{buildPreset(name);status('Tap the map to place your stand.')}
+ P.length=0;resize();compute()}
+function status(t){$('status').textContent=t}
+$('terrain').onchange=e=>setTerrain(e.target.value);
+$('rot').oninput=e=>{S.rot=+e.target.value;$('rotV').textContent=S.rot+'° '+card(S.rot);schedule()};
+$('region').onchange=e=>{S.lat=+e.target.value;schedule()};
+$('season').onchange=e=>{S.doy=+e.target.value;schedule()};
+function setTime(m){S.minutes=m;$('time').value=m;$('timeV').textContent=$('clock').textContent=fmtT(m/60);schedule()}
+$('time').oninput=e=>setTime(+e.target.value);
+let playT=null;
+function stopPlay(){clearInterval(playT);playT=null;$('playBtn').textContent='Play day';$('playBtn').setAttribute('aria-pressed','false')}
+$('playBtn').onclick=()=>{if(playT){stopPlay();return}
+ if(S.minutes>=1260)setTime(360);else setTime(Math.floor(S.minutes/30)*30);
+ $('playBtn').textContent='Pause';$('playBtn').setAttribute('aria-pressed','true');
+ playT=setInterval(()=>{const m=S.minutes+30;if(m>1260){stopPlay();return}setTime(m);if(m>=1260)stopPlay()},1600)};
+$('ws').oninput=e=>{S.ws=+e.target.value;$('wsV').textContent=S.ws+' mph';schedule()};
+const dial=$('dial');
+(()=>{let h='';for(let a=0;a<360;a+=22.5){const r=a*D,maj=a%90===0,r1=maj?50:53;h+=`<line class="tick${maj?' major':''}" x1="${Math.sin(r)*r1}" y1="${-Math.cos(r)*r1}" x2="${Math.sin(r)*57}" y2="${-Math.cos(r)*57}"/>`}$('dialTicks').innerHTML=h})();
+function setWd(v){v=((Math.round(v)%360)+360)%360;S.wd=v;$('dialArrow').setAttribute('transform','rotate('+v+')');dial.setAttribute('aria-valuenow',v);dial.setAttribute('aria-valuetext',card(v)+' '+v+' degrees');$('wdV').textContent=card(v)+' '+v+'°';schedule()}
+function dialAngle(e){const r=dial.getBoundingClientRect();const x=e.clientX-r.left-r.width/2,y=e.clientY-r.top-r.height/2;return Math.round((Math.atan2(x,-y)/D)/5)*5}
+let dialDrag=false;
+dial.addEventListener('pointerdown',e=>{dialDrag=true;dial.setPointerCapture(e.pointerId);setWd(dialAngle(e))});
+dial.addEventListener('pointermove',e=>{if(dialDrag)setWd(dialAngle(e))});
+dial.addEventListener('pointerup',()=>{dialDrag=false});dial.addEventListener('pointercancel',()=>{dialDrag=false});
+dial.addEventListener('keydown',e=>{const s=e.shiftKey?45:5;if(e.key==='ArrowRight'||e.key==='ArrowUp'){e.preventDefault();setWd(S.wd+s)}else if(e.key==='ArrowLeft'||e.key==='ArrowDown'){e.preventDefault();setWd(S.wd-s)}});
+$('showElev').onchange=e=>{S.showElev=e.target.checked;topoDirty=true;drawBase()};
+$('showFlow').onchange=e=>{S.showFlow=e.target.checked;drawBase()};
+const modes={mStand:'stand',mRaise:'raise',mLower:'lower'};
+for(const id in modes)$(id).onclick=()=>{S.mode=modes[id];for(const o in modes)$(o).setAttribute('aria-pressed',String(o===id))};
+
+function ptr(e){const r=cv.getBoundingClientRect();return{x:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),y:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))}}
+let dragging=false;
+function brush(p){const amt=S.mode==='raise'?.05:-.05;const rad=.06;const ci=p.x*(cols-1),cj=p.y*(rows-1),R=rad*cols;
+ for(let j=Math.max(0,Math.floor(cj-R*2));j<Math.min(rows,cj+R*2);j++)for(let i=Math.max(0,Math.floor(ci-R*2));i<Math.min(cols,ci+R*2);i++){const d2=((i-ci)**2+(j-cj)**2)/(R*R);H[j*cols+i]+=amt*Math.exp(-d2)}
+ let mn=1e9,mx=-1e9;for(const v of H){if(v<mn)mn=v;if(v>mx)mx=v}if(mn<0||mx>1)normalize(H);hVer++;
+ if(S.terrain==='upload'){S.userH=H;$('resetBtn').disabled=!S.aiGrid}schedule()}
+cv.addEventListener('pointerdown',e=>{const p=ptr(e);if(S.mode==='stand'){S.stand=p;P.length=0;updateReadouts();dragging=true}else{brush(p);dragging=true}cv.setPointerCapture(e.pointerId)});
+cv.addEventListener('pointermove',e=>{if(!dragging)return;const p=ptr(e);if(S.mode==='stand'){S.stand=p;updateReadouts()}else brush(p)});
+cv.addEventListener('pointerup',()=>{dragging=false});cv.addEventListener('pointercancel',()=>{dragging=false});
+window.addEventListener('resize',()=>resize());
+
+// ---------- upload + terrain read ----------
+// Inside Claude: uses the viewer's Claude account (sample capability).
+// On a website (Netlify): posts the screenshot to /api/read-terrain, which calls the Claude API server side.
+let sampleFn=null,canImages=false,lastFile=null,serverMode=false;
+const inClaude=!!(window.claude&&window.claude.use);
+(async()=>{if(inClaude){try{sampleFn=await window.claude.use('sample');if(sampleFn){const lim=await sampleFn.limits().catch(()=>null);canImages=!!(lim&&lim.images)}}catch(_){}}
+ if(!canImages){serverMode=!inClaude&&/^https?:$/.test(location.protocol);
+  if(!serverMode){$('aiNote').textContent='Automatic terrain reading is not available in this view. Upload your screenshot, then shape the ground with Raise and Lower using the contours as your guide.';$('aiNote').className='note warn';$('readBtn').hidden=true}}})();
+const canRead=()=>canImages||serverMode;
+let passcode='';try{passcode=localStorage.getItem('trl-pass')||''}catch(_){}
+$('passcode').value=passcode;
+
+$('drop').onclick=()=>$('file').click();
+$('drop').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('file').click()}};
+$('drop').ondragover=e=>{e.preventDefault();$('drop').classList.add('over')};
+$('drop').ondragleave=()=>$('drop').classList.remove('over');
+$('drop').ondrop=e=>{e.preventDefault();$('drop').classList.remove('over');const f=e.dataTransfer.files[0];if(f)loadFile(f)};
+$('file').onchange=e=>{const f=e.target.files[0];if(f)loadFile(f)};
+
+function loadFile(f){lastFile=f;const url=URL.createObjectURL(f);const im=new Image();im.onload=()=>{S.img=im;S.aiGrid=null;S.userH=null;
+ cols=160;rows=Math.max(60,Math.min(320,Math.round(160*im.naturalHeight/im.naturalWidth)));H=new Float32Array(cols*rows).fill(.5);S.userH=H;hVer++;
+ $('drop').textContent=f.name+' loaded. Tap to change.';$('readBtn').disabled=false;$('resetBtn').disabled=true;P.length=0;resize();compute();
+ if(canRead())readTerrain();else status('Shape the ground with Raise and Lower, then place your stand.')};im.src=url}
+
+function gridDims(){const C=canImages?28:24;return{C,R:Math.max(12,Math.min(48,Math.round(C*S.img.naturalHeight/S.img.naturalWidth)))}}
+function buildPrompt(R,C,hints){return `You are reading a screenshot of an onX Hunt map that shows topographic contour lines (with elevation labels on index lines) and possibly slope-angle shading (colored overlay where steeper ground is warmer colors), creeks (blue lines), and roads.
+Build a relative ground elevation model of the WHOLE image as a grid with ${R} rows and ${C} columns. Row 0 is the TOP edge of the image, column 0 is the LEFT edge. Values are relative elevation from 0 (lowest ground in the image) to 100 (highest).
+Method: use contour elevation labels where readable; contour lines bend upstream (pointing uphill) where they cross drainages and creeks; creeks and blue lines are low ground; closed contour rings are hilltops unless hachured; tightly spaced lines or hot slope shading mean steep ground. Keep ridgelines, saddles, benches, and drainages in their correct positions.
+${hints?'Hints from the hunter: '+hints+'\n':''}Reply with only JSON in this shape: {"grid":[[...${C} numbers...], ... ${R} rows],"summary":"one sentence naming the main features you found and where","confidence":"low|medium|high"}`}
+function parseLoose(t){const i=t.indexOf('{'),j=t.lastIndexOf('}');if(i<0||j<=i)throw{code:'invalid_json'};try{return JSON.parse(t.slice(i,j+1))}catch(_){throw{code:'invalid_json'}}}
+function shrinkImage(img){const max=1568;const sc=Math.min(1,max/Math.max(img.naturalWidth,img.naturalHeight));const c=document.createElement('canvas');
+ c.width=Math.round(img.naturalWidth*sc);c.height=Math.round(img.naturalHeight*sc);const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);
+ return c.toDataURL('image/jpeg',.88).split(',')[1]}
+
+async function readViaServer(R,C,hints,signal){
+ const res=await fetch('/api/read-terrain',{method:'POST',signal,headers:{'content-type':'application/json','x-passcode':passcode},
+  body:JSON.stringify({image:shrinkImage(S.img),mediaType:'image/jpeg',rows:R,cols:C,hints})});
+ if(!res.ok){let j={};try{j=await res.json()}catch(_){}
+  throw{code:j.error||(res.status===401?'passcode':res.status===429?'rate_limited':res.status===404?'no_server':'upstream_error')}}
+ const rd=res.body.getReader(),dec=new TextDecoder();let txt='';
+ for(;;){const {done,value}=await rd.read();if(done)break;txt+=dec.decode(value,{stream:true});
+  status('Reading terrain… '+Math.min(99,Math.round(txt.length/(R*C*3.2)*100))+'%')}
+ const m=txt.match(/\[\[ERROR:([a-z_]+)\]\]/);if(m)throw{code:m[1]};
+ return parseLoose(txt)}
+
+let ctl=null;
+async function readTerrain(){if(!lastFile||!S.img||!canRead())return;ctl?.abort();ctl=new AbortController();
+ const {C,R}=gridDims();const hints=$('hints').value.trim().slice(0,300);
+ $('readBtn').disabled=true;status('Reading terrain from your screenshot. This can take up to a minute…');
+ try{const res=canImages?await sampleFn.json(buildPrompt(R,C,hints),{images:[lastFile],modelTier:'complex',signal:ctl.signal}):await readViaServer(R,C,hints,ctl.signal);
+  let g=res&&res.grid;if(!Array.isArray(g)||g.length<4||!Array.isArray(g[0]))throw{code:'invalid_json'};
+  const C2=Math.min(...g.map(r=>Array.isArray(r)?r.length:0));if(C2<4)throw{code:'invalid_json'};g=g.map(r=>r.slice(0,C2));
+  S.aiGrid=g;H=gridFromAI(g);S.userH=H;$('resetBtn').disabled=true;compute();$('passRow').hidden=true;
+  status((res.summary?res.summary+' ':'')+'Confidence: '+(res.confidence||'unknown')+'. Turn on Elevation tint to check it.')}
+ catch(e){const c=e&&e.code;
+  if(c==='cancelled'||(e&&e.name==='AbortError'))return;
+  if(c==='passcode'){$('passRow').hidden=false;status(passcode?'That passcode did not work. Check it and tap Read terrain.':'Enter the passcode, then tap Read terrain.')}
+  else if(c==='not_granted'||c==='sampling_disabled'||c==='images_unavailable'){status('Terrain reading was not allowed. Shape the ground with Raise and Lower instead.');$('readBtn').hidden=true}
+  else if(c==='rate_limited')status('Scan limit reached. Try again later, or shape the ground with Raise and Lower.');
+  else if(c==='daily_limit')status('You have used today\'s scans. Try again tomorrow, or shape the ground with Raise and Lower.');
+  else if(c==='no_server')status('The terrain reader is not set up on this site yet. Shape the ground with Raise and Lower.');
+  else if(c==='not_configured')status('The site owner still needs to add the Claude API key in Netlify.');
+  else if(c==='image_rejected'||c==='bad_image')status('That image could not be read. Try a PNG or JPEG screenshot.');
+  else status('The terrain read did not come back usable. Add a hint and tap Read terrain to try again.')}
+ finally{$('readBtn').disabled=false}}
+$('readBtn').onclick=readTerrain;
+$('passcode').oninput=e=>{passcode=e.target.value.trim();try{localStorage.setItem('trl-pass',passcode)}catch(_){}};
+$('resetBtn').onclick=()=>{if(S.aiGrid){H=gridFromAI(S.aiGrid);S.userH=H;$('resetBtn').disabled=true;compute()}};
+
+// ---------- boot ----------
+$('timeV').textContent=$('clock').textContent=fmtT(S.minutes/60);setWd(S.wd);$('rotV').textContent='0° N';
+setTerrain('ridge');requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
