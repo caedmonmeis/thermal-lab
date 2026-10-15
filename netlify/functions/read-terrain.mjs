@@ -2,9 +2,7 @@
 // Environment variables (Netlify > Site configuration > Environment variables):
 //   ANTHROPIC_API_KEY        required, your key from console.anthropic.com
 //   APP_PASSCODE             optional, visitors must enter this before scanning
-//   DAILY_SCANS_PER_VISITOR  optional, default 10 (0 turns the daily cap off)
 //   ANTHROPIC_MODEL          optional, default claude-sonnet-5-5
-import { getStore } from "@netlify/blobs";
 
 const json = (o, status = 200) =>
   new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json" } });
@@ -36,20 +34,7 @@ export default async (req, context) => {
   const C = Math.max(12, Math.min(48, parseInt(body.cols, 10) || 24));
   const hints = typeof body.hints === "string" ? body.hints.slice(0, 300) : "";
 
-  // Daily cap per visitor IP, stored in Netlify Blobs.
-  const limit = parseInt(process.env.DAILY_SCANS_PER_VISITOR ?? "10", 10);
-  if (limit > 0) {
-    try {
-      const store = getStore("scan-counts");
-      const k = `${new Date().toISOString().slice(0, 10)}/${context.ip || "unknown"}`;
-      const n = parseInt((await store.get(k)) || "0", 10);
-      if (n >= limit) return json({ error: "daily_limit" }, 429);
-      await store.set(k, String(n + 1));
-    } catch (e) {
-      console.error("scan counter unavailable", e);
-    }
-  }
-
+  const t0 = Date.now();
   const upstream = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -72,9 +57,12 @@ export default async (req, context) => {
   });
 
   if (!upstream.ok) {
-    console.error("Claude API error", upstream.status, await upstream.text());
+    const raw = await upstream.text();
+    console.error("Claude API error", upstream.status, raw);
+    let msg = "";
+    try { msg = JSON.parse(raw).error.message; } catch { msg = raw.slice(0, 160); }
     const busy = upstream.status === 429 || upstream.status === 529;
-    return json({ error: busy ? "rate_limited" : "upstream_error" }, 502);
+    return json({ error: busy ? "rate_limited" : "upstream_error", detail: `Claude API ${upstream.status}: ${msg}`.slice(0, 220) }, 502);
   }
 
   // Turn the API's event stream into plain text so the page can show progress.
@@ -99,16 +87,20 @@ export default async (req, context) => {
             if (ev.type === "content_block_delta" && ev.delta && ev.delta.type === "text_delta") {
               ctrl.enqueue(enc.encode(ev.delta.text));
             } else if (ev.type === "error") {
-              ctrl.enqueue(enc.encode("[[ERROR:upstream_error]]"));
+              const m = ((ev.error && ev.error.message) || "stream error").replace(/[\]|]/g, " ").slice(0, 160);
+              console.error("Claude stream error", JSON.stringify(ev));
+              ctrl.enqueue(enc.encode(`[[ERROR:upstream_error|Claude: ${m}]]`));
             } else if (ev.type === "message_delta" && ev.delta && ev.delta.stop_reason === "max_tokens") {
-              ctrl.enqueue(enc.encode("[[ERROR:invalid_json]]"));
+              console.error("Claude reply hit max_tokens");
+              ctrl.enqueue(enc.encode("[[ERROR:invalid_json|reply was cut off at max length]]"));
             }
           }
         }
       } catch (e) {
         console.error("stream failed", e);
-        ctrl.enqueue(enc.encode("[[ERROR:upstream_error]]"));
+        ctrl.enqueue(enc.encode("[[ERROR:upstream_error|connection dropped: " + String(e && e.message || e).slice(0, 120) + "]]"));
       }
+      console.log(`scan finished in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
       ctrl.close();
     },
   });
