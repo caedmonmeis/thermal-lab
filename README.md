@@ -1,8 +1,8 @@
 # Ridgeline Thermal Lab (Netlify version)
 
-## What's in here
-- public/index.html: the simulator page
-- netlify/functions/read-terrain.mjs: the private server piece that sends screenshots to Claude
+## What's in here (all at the top level, no folders)
+- index.html: the simulator page
+- read-terrain.mjs: the server piece that sends screenshots to Claude
 - netlify.toml, package.json, package-lock.json: settings that tell Netlify how to deploy it
 
 Drag and drop deploys do NOT run server functions. Deploy from GitHub (steps below) so the auto scan works.
@@ -17,12 +17,12 @@ Rough cost: about 3 to 5 cents per scan with the default model.
 
 ## 2. Put the files on GitHub
 1. Sign in at github.com and create a new private repository (for example `thermal-lab`).
-2. Click "uploading an existing file" and drag in everything from this folder (both folders and all files), then Commit.
+2. Click "uploading an existing file" and drag in all 6 files, then Commit.
 
 ## 3. Connect it to Netlify
 - To keep your current site URL: open your site in Netlify > Site configuration > Build & deploy > Link repository, and pick the GitHub repo.
 - Or make a new site: Add new site > Import an existing project > GitHub > pick the repo.
-- Leave the build command empty. The publish folder (`public`) comes from netlify.toml.
+- Leave the build command, base directory, and publish directory empty. netlify.toml sets them.
 
 ## 4. Add your settings
 Site configuration > Environment variables > Add a variable:
